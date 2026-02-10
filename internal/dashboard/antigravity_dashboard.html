@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLIProxyAPI — 控制台</title>
+  <meta name="description" content="CLIProxyAPI 管理控制台">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    :root {
+      --bg: #0a0e1a;
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-hover: rgba(255, 255, 255, 0.07);
+      --glass-active: rgba(255, 255, 255, 0.1);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-border-hover: rgba(255, 255, 255, 0.15);
+      --blur: 20px;
+      --cyan: #00d4ff;
+      --cyan-dim: rgba(0, 212, 255, 0.12);
+      --cyan-glow: rgba(0, 212, 255, 0.25);
+      --purple: #8b5cf6;
+      --purple-dim: rgba(139, 92, 246, 0.12);
+      --blue: #3b82f6;
+      --green: #34d399;
+      --green-dim: rgba(52, 211, 153, 0.12);
+      --red: #f87171;
+      --red-dim: rgba(248, 113, 113, 0.12);
+      --yellow: #fbbf24;
+      --yellow-dim: rgba(251, 191, 36, 0.12);
+      --text: rgba(255, 255, 255, 0.92);
+      --text-sub: rgba(255, 255, 255, 0.55);
+      --text-muted: rgba(255, 255, 255, 0.25);
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+      --radius: 12px;
+      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html {
+      font-size: 14px
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ═══════ ANIMATED BG ═══════ */
+    .bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden
+    }
+
+    .bg::before {
+      content: '';
+      position: absolute;
+      width: 800px;
+      height: 800px;
+      top: -200px;
+      right: -200px;
+      background: radial-gradient(circle, rgba(0, 212, 255, 0.08) 0%, transparent 70%);
+      animation: drift1 20s ease-in-out infinite;
+    }
+
+    .bg::after {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      bottom: -100px;
+      left: -100px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+      animation: drift2 25s ease-in-out infinite;
+    }
+
+    @keyframes drift1 {
+
+      0%,
+      100% {
+        transform: translate(0, 0)
+      }
+
+      50% {
+        transform: translate(-80px, 60px)
+      }
+    }
+
+    @keyframes drift2 {
+
+      0%,
+      100% {
+        transform: translate(0, 0)
+      }
+
+      50% {
+        transform: translate(60px, -80px)
+      }
+    }
+
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    /* ═══════ GLASS MIXIN ═══════ */
+    .glass {
+      background: var(--glass);
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
+      border: 1px solid var(--glass-border);
+    }
+
+    /* ═══════ LAYOUT ═══════ */
+    .layout {
+      display: flex;
+      height: 100vh;
+      position: relative;
+      z-index: 1
+    }
+
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-right: 1px solid var(--glass-border);
+    }
+
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column
+    }
+
+    .main::-webkit-scrollbar {
+      width: 6px
+    }
+
+    .main::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    .main::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px
+    }
+
+    .content {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 1120px;
+      width: 100%
+    }
+
+    /* ═══════ SIDEBAR ═══════ */
+    .sidebar__brand {
+      padding: 24px 20px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .sidebar__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      font-family: var(--mono);
+      box-shadow: 0 0 20px var(--cyan-glow);
+    }
+
+    .sidebar__name {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.3px
+    }
+
+    .sidebar__nav {
+      flex: 1;
+      padding: 16px 10px;
+      overflow-y: auto
+    }
+
+    .nav-label {
+      padding: 4px 12px;
+      margin-bottom: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-bottom: 2px;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      color: var(--text);
+      background: var(--glass-hover)
+    }
+
+    .nav-item.active {
+      color: var(--text);
+      background: var(--glass-active);
+      border-color: var(--glass-border-hover);
+      box-shadow: inset 0 0 0 1px rgba(0, 212, 255, 0.05);
+    }
+
+    .nav-item__ic {
+      width: 18px;
+      text-align: center;
+      font-size: 14px;
+      flex-shrink: 0
+    }
+
+    .nav-item__badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--cyan-dim);
+      color: var(--cyan);
+      font-family: var(--mono);
+    }
+
+    .sidebar__foot {
+      padding: 14px 20px;
+      border-top: 1px solid var(--glass-border);
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--mono);
+      letter-spacing: 0.3px;
+    }
+
+    /* ═══════ AUTH GATE ═══════ */
+    .auth-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .auth-gate .bg {
+      position: absolute;
+      inset: 0
+    }
+
+    .auth-gate.hidden {
+      display: none
+    }
+
+    .auth-box {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 60px rgba(0, 212, 255, 0.04);
+    }
+
+    .auth-box__icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      font-family: var(--mono);
+      box-shadow: 0 0 30px var(--cyan-glow);
+    }
+
+    .auth-box__title {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      letter-spacing: -0.5px
+    }
+
+    .auth-box__desc {
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-bottom: 28px;
+      line-height: 1.6
+    }
+
+    .auth-box__input {
+      width: 100%;
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      outline: none;
+      transition: all var(--transition);
+      -webkit-text-security: disc;
+    }
+
+    .auth-box__input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px var(--cyan-dim)
+    }
+
+    .auth-box__input::placeholder {
+      color: var(--text-muted)
+    }
+
+    .auth-box__err {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--red)
+    }
+
+    /* ═══════ PAGE ═══════ */
+    .page-head {
+      margin-bottom: 28px
+    }
+
+    .page-head__title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.3px
+    }
+
+    .page-head__sub {
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-top: 4px
+    }
+
+    /* ═══════ STATS ═══════ */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px
+    }
+
+    .stat {
+      padding: 20px;
+      border-radius: var(--radius);
+      transition: all var(--transition);
+    }
+
+    .stat:hover {
+      background: var(--glass-hover);
+      border-color: var(--glass-border-hover)
+    }
+
+    .stat__label {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+      font-weight: 500;
+      letter-spacing: 0.3px
+    }
+
+    .stat__val {
+      font-size: 28px;
+      font-weight: 700;
+      font-family: var(--mono);
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat__val--green {
+      background: linear-gradient(135deg, var(--green), #6ee7b7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .stat__val--purple {
+      background: linear-gradient(135deg, var(--purple), #a78bfa);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .stat__val--plain {
+      background: none;
+      -webkit-text-fill-color: var(--text-sub);
+      font-weight: 600
+    }
+
+    /* ═══════ CARD ═══════ */
+    .card {
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow: hidden
+    }
+
+    .card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .card__title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-sub)
+    }
+
+    .card__body {
+      padding: 20px
+    }
+
+    /* ═══════ TABLE ═══════ */
+    .tbl {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    .tbl th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .tbl td {
+      padding: 14px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      vertical-align: middle;
+    }
+
+    .tbl tr:last-child td {
+      border-bottom: none
+    }
+
+    .tbl tr:hover td {
+      background: rgba(255, 255, 255, 0.02)
+    }
+
+    /* ═══════ DOT ═══════ */
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px
+    }
+
+    .dot--green {
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(52, 211, 153, 0.5)
+    }
+
+    .dot--red {
+      background: var(--red);
+      box-shadow: 0 0 8px rgba(248, 113, 113, 0.4)
+    }
+
+    .dot--yellow {
+      background: var(--yellow);
+      box-shadow: 0 0 8px rgba(251, 191, 36, 0.4)
+    }
+
+    .dot--gray {
+      background: var(--text-muted)
+    }
+
+    /* ═══════ BADGE ═══════ */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--mono);
+    }
+
+    .badge--green {
+      background: var(--green-dim);
+      color: var(--green)
+    }
+
+    .badge--red {
+      background: var(--red-dim);
+      color: var(--red)
+    }
+
+    .badge--yellow {
+      background: var(--yellow-dim);
+      color: var(--yellow)
+    }
+
+    .badge--gray {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted)
+    }
+
+    /* ═══════ BUTTONS ═══════ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      line-height: 1;
+    }
+
+    .btn:hover {
+      background: var(--glass-hover);
+      border-color: var(--glass-border-hover)
+    }
+
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed
+    }
+
+    .btn--primary {
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 2px 12px rgba(0, 212, 255, 0.2);
+    }
+
+    .btn--primary:hover {
+      box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+      transform: translateY(-1px)
+    }
+
+    .btn--danger {
+      border-color: rgba(248, 113, 113, 0.2)
+    }
+
+    .btn--danger:hover {
+      background: var(--red-dim);
+      border-color: rgba(248, 113, 113, 0.4);
+      color: var(--red)
+    }
+
+    .btn--sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 6px
+    }
+
+    .btn--full {
+      width: 100%;
+      justify-content: center
+    }
+
+    /* ═══════ OAUTH ═══════ */
+    .oauth {
+      display: none;
+      padding: 20px;
+      border-bottom: 1px solid var(--glass-border)
+    }
+
+    .oauth.active {
+      display: block
+    }
+
+    .oauth-step {
+      padding: 16px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      margin-bottom: 12px;
+    }
+
+    .oauth-step__num {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      font-family: var(--mono);
+    }
+
+    .oauth-step__text {
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.6
+    }
+
+    .oauth-step__text strong {
+      color: var(--text)
+    }
+
+    .oauth-step__text code {
+      background: rgba(0, 212, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--cyan);
+    }
+
+    .oauth-url {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--glass-border);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--cyan);
+      word-break: break-all;
+      line-height: 1.5;
+      max-height: 72px;
+      overflow-y: auto;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .oauth-url:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px var(--cyan-dim)
+    }
+
+    .oauth-input {
+      width: 100%;
+      padding: 10px 14px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      outline: none;
+      transition: all var(--transition);
+    }
+
+    .oauth-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px var(--cyan-dim)
+    }
+
+    .oauth-input::placeholder {
+      color: var(--text-muted)
+    }
+
+    .oauth-btns {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px
+    }
+
+    /* ═══════ EMPTY ═══════ */
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted)
+    }
+
+    .empty__icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+      opacity: 0.3
+    }
+
+    .empty__text {
+      font-size: 13px
+    }
+
+    /* ═══════ TOAST ═══════ */
+    .toasts {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+
+    .toast {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid;
+      max-width: 340px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      animation: toast-in 0.25s ease-out;
+    }
+
+    .toast--ok {
+      background: var(--green-dim);
+      border-color: rgba(52, 211, 153, 0.2);
+      color: var(--green)
+    }
+
+    .toast--err {
+      background: var(--red-dim);
+      border-color: rgba(248, 113, 113, 0.2);
+      color: var(--red)
+    }
+
+    .toast--info {
+      background: var(--cyan-dim);
+      border-color: rgba(0, 212, 255, 0.2);
+      color: var(--cyan)
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    /* ═══════ SPINNER ═══════ */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--glass-border);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* ═══════ VIEWS ═══════ */
+    .view {
+      display: none
+    }
+
+    .view.active {
+      display: block
+    }
+
+    /* ═══════ KEY LIST ═══════ */
+    .key-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      margin-bottom: 8px;
+      transition: all var(--transition);
+    }
+
+    .key-item:hover {
+      background: var(--glass-hover);
+      border-color: var(--glass-border-hover)
+    }
+
+    .key-item__val {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-sub);
+      letter-spacing: 0.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .key-item__actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0
+    }
+
+    .key-new {
+      animation: key-flash 0.6s ease-out;
+      border-color: var(--cyan) !important;
+      box-shadow: 0 0 12px var(--cyan-dim);
+    }
+
+    @keyframes key-flash {
+      from {
+        background: var(--cyan-dim)
+      }
+
+      to {
+        background: transparent
+      }
+    }
+
+    /* ═══════ QUOTA CARDS ═══════ */
+    .quota-plan {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--glass-border);
+      margin-bottom: 14px;
+    }
+
+    .quota-plan__item {
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px
+    }
+
+    .quota-plan__label {
+      color: var(--text-muted)
+    }
+
+    .quota-plan__value {
+      color: var(--text);
+      font-family: var(--mono);
+      font-weight: 600
+    }
+
+    .quota-plan__badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--purple-dim), rgba(139, 92, 246, 0.25));
+      color: var(--purple);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .quota-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      padding: 6px 0;
+    }
+
+    .quota-card {
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 18px 16px;
+      transition: all var(--transition);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .quota-card:hover {
+      border-color: rgba(139, 92, 246, 0.3);
+      background: rgba(139, 92, 246, 0.04)
+    }
+
+    .quota-card__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 14px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quota-card__ring {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 14px;
+      position: relative
+    }
+
+    .quota-card__ring svg {
+      transform: rotate(-90deg)
+    }
+
+    .quota-card__ring-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 6
+    }
+
+    .quota-card__ring-fg {
+      fill: none;
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s ease
+    }
+
+    .quota-card__ring-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      font-weight: 700;
+      font-family: var(--mono);
+    }
+
+    .quota-card__meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+      margin-bottom: 12px
+    }
+
+    .quota-card__meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    .quota-card__meta-label {
+      color: var(--text-muted)
+    }
+
+    .quota-card__meta-value {
+      color: var(--text);
+      font-family: var(--mono)
+    }
+
+    .quota-card__status {
+      font-weight: 600
+    }
+
+    .quota-card__status.healthy {
+      color: #22c55e
+    }
+
+    .quota-card__status.warning {
+      color: #eab308
+    }
+
+    .quota-card__status.critical {
+      color: #f97316
+    }
+
+    .quota-card__status.depleted {
+      color: #ef4444
+    }
+
+    .quota-card__models {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px
+    }
+
+    .quota-card__tag {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-sub);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      white-space: nowrap;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quota-acct-hdr {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      cursor: pointer;
+      border-bottom: 1px solid var(--glass-border);
+      margin-bottom: 10px;
+    }
+
+    .quota-acct-hdr__arrow {
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      font-size: 11px
+    }
+
+    .quota-acct-hdr.open .quota-acct-hdr__arrow {
+      transform: rotate(90deg)
+    }
+
+    .quota-acct-hdr__email {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text)
+    }
+
+    .quota-acct-section__body {
+      display: none
+    }
+
+    .quota-acct-hdr.open+.quota-acct-section__body {
+      display: block
+    }
+
+    /* ═══════ RESPONSIVE ═══════ */
+    @media(max-width:768px) {
+      .sidebar {
+        display: none
+      }
+
+      .stats {
+        grid-template-columns: 1fr 1fr
+      }
+
+      .content {
+        padding: 20px
+      }
+    }
+
+    /* Status badge */
+    .quota-status-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+
+    .quota-status-badge--active {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .quota-status-badge--disabled {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+
+    /* Toggle switch */
+    .quota-toggle {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+      margin-left: auto;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .quota-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .quota-toggle__slider {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      transition: var(--transition);
+    }
+
+    .quota-toggle__slider::before {
+      content: '';
+      position: absolute;
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      transition: var(--transition);
+    }
+
+    .quota-toggle input:checked+.quota-toggle__slider {
+      background: var(--green-dim);
+    }
+
+    .quota-toggle input:checked+.quota-toggle__slider::before {
+      transform: translateX(16px);
+      background: var(--green);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- BG -->
+  <div class="bg">
+    <div class="bg-grid"></div>
+  </div>
+
+  <!-- TOASTS -->
+  <div class="toasts" id="toasts"></div>
+
+  <!-- ═══════ AUTH ═══════ -->
+  <div class="auth-gate" id="authGate">
+    <div class="bg">
+      <div class="bg-grid"></div>
+    </div>
+    <div class="auth-box">
+      <div class="auth-box__icon">C</div>
+      <div class="auth-box__title">CLIProxyAPI</div>
+      <div class="auth-box__desc">输入管理密钥以访问控制台</div>
+      <input type="password" class="auth-box__input" id="secretInput" placeholder="管理密钥" autocomplete="off">
+      <div style="margin-top:14px">
+        <button class="btn btn--primary btn--full" id="secretSubmit" onclick="authenticate()">登录</button>
+      </div>
+      <div class="auth-box__err" id="authError"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ APP ═══════ -->
+  <div class="layout" id="app" style="display:none">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <div class="sidebar__icon">C</div>
+        <div class="sidebar__name">CLIProxyAPI</div>
+      </div>
+      <nav class="sidebar__nav">
+        <div class="nav-label">通用</div>
+        <div class="nav-item active" data-v="overview" onclick="go('overview')">
+          <span class="nav-item__ic">◫</span>概览
+        </div>
+        <div class="nav-label" style="margin-top:12px">供应商</div>
+        <div class="nav-item" data-v="antigravity" onclick="go('antigravity')">
+          <span class="nav-item__ic">◆</span>Antigravity
+          <span class="nav-item__badge" id="navBadge">0</span>
+        </div>
+      </nav>
+      <div class="sidebar__foot"><span id="verInfo">CLIProxyAPI</span></div>
+    </aside>
+
+    <main class="main">
+      <div class="content">
+
+        <!-- ═══ OVERVIEW ═══ -->
+        <div class="view active" id="view-overview">
+          <div class="page-head">
+            <div class="page-head__title">概览</div>
+            <div class="page-head__sub">系统运行状态与资源概要</div>
+          </div>
+          <div class="stats">
+            <div class="stat glass">
+              <div class="stat__label">总账户</div>
+              <div class="stat__val" id="ov0">—</div>
+            </div>
+            <div class="stat glass">
+              <div class="stat__label">活跃</div>
+              <div class="stat__val stat__val--green" id="ov1">—</div>
+            </div>
+            <div class="stat glass">
+              <div class="stat__label">总请求</div>
+              <div class="stat__val stat__val--purple" id="ov2">—</div>
+            </div>
+            <div class="stat glass">
+              <div class="stat__label">错误</div>
+              <div class="stat__val stat__val--plain" id="ov3">—</div>
+            </div>
+          </div>
+          <div class="card glass">
+            <div class="card__head">
+              <div class="card__title">快速操作</div>
+            </div>
+            <div class="card__body" style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn" onclick="go('antigravity')">◆ Antigravity 管理</button>
+              <button class="btn" onclick="refreshAll()">↻ 刷新数据</button>
+            </div>
+          </div>
+          <div class="card glass">
+            <div class="card__head">
+              <div class="card__title">API 密钥</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn--sm" onclick="loadApiKeys()">↻</button>
+                <button class="btn btn--primary btn--sm" onclick="generateApiKey()">+ 生成密钥</button>
+              </div>
+            </div>
+            <div class="card__body" id="apiKeyBody">
+              <div class="empty">
+                <div class="empty__icon">🔑</div>
+                <div class="empty__text">加载中...</div>
+              </div>
+            </div>
+          </div>
+          <div class="card glass">
+            <div class="card__head">
+              <div class="card__title">Antigravity 额度监控</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn--sm" onclick="loadQuota()" id="quotaRefreshBtn">↻ 刷新</button>
+              </div>
+            </div>
+            <div class="card__body" id="quotaBody">
+              <div class="empty">
+                <div class="empty__icon">📊</div>
+                <div class="empty__text">加载中...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ ANTIGRAVITY ═══ -->
+        <div class="view" id="view-antigravity">
+          <div class="page-head">
+            <div class="page-head__title">Antigravity</div>
+            <div class="page-head__sub">管理 Antigravity 凭据与认证</div>
+          </div>
+          <div class="stats">
+            <div class="stat glass">
+              <div class="stat__label">账户数</div>
+              <div class="stat__val" id="ag0">—</div>
+            </div>
+            <div class="stat glass">
+              <div class="stat__label">活跃</div>
+              <div class="stat__val stat__val--green" id="ag1">—</div>
+            </div>
+            <div class="stat glass">
+              <div class="stat__label">总请求</div>
+              <div class="stat__val stat__val--purple" id="ag2">—</div>
+            </div>
+            <div class="stat glass">
+              <div class="stat__label">错误</div>
+              <div class="stat__val stat__val--plain" id="ag3">—</div>
+            </div>
+          </div>
+          <div class="card glass">
+            <div class="card__head">
+              <div class="card__title">凭据</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn--sm" onclick="loadCreds()">↻</button>
+                <button class="btn btn--primary btn--sm" id="addBtn" onclick="startOAuth()">+ 添加账户</button>
+              </div>
+            </div>
+            <div class="oauth" id="oauthPanel">
+              <div class="oauth-step">
+                <div class="oauth-step__num">步骤 1 · 打开登录链接</div>
+                <div class="oauth-step__text">点击下方链接，使用 Google 账户登录。登录后页面可能无法加载，这是<strong>正常现象</strong>。</div>
+                <div class="oauth-url" id="oauthUrl" onclick="copyUrl()" title="点击复制">生成中...</div>
+              </div>
+              <div class="oauth-step">
+                <div class="oauth-step__num">步骤 2 · 粘贴回调地址</div>
+                <div class="oauth-step__text">复制浏览器地址栏的<strong>完整 URL</strong>（含 <code>?code=...</code>），粘贴到下方。</div>
+                <input class="oauth-input" id="cbInput" placeholder="在此粘贴回调 URL..." autocomplete="off">
+              </div>
+              <div class="oauth-btns">
+                <button class="btn btn--primary btn--sm" onclick="submitCb()">提交</button>
+                <button class="btn btn--danger btn--sm" onclick="cancelOAuth()">取消</button>
+                <div id="oauthSpin" style="display:none">
+                  <div class="spinner"></div>
+                </div>
+              </div>
+            </div>
+            <div style="padding:0">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>状态</th>
+                    <th>账户</th>
+                    <th>类型</th>
+                    <th style="text-align:right">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="credBody">
+                  <tr>
+                    <td colspan="4">
+                      <div class="empty">
+                        <div class="empty__icon">◇</div>
+                        <div class="empty__text">暂无凭据，点击「添加账户」开始</div>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API = location.origin; let KEY = '', oauthSt = '', poll = null;
+
+    function toast(m, t = 'info') { const e = document.createElement('div'); e.className = `toast toast--${t}`; e.textContent = m; document.getElementById('toasts').appendChild(e); setTimeout(() => { e.style.opacity = '0'; e.style.transition = 'opacity .2s'; setTimeout(() => e.remove(), 200) }, 3500) }
+
+    async function api(method, path, body) {
+      const o = { method, headers: { 'Authorization': `Bearer ${KEY}`, 'Content-Type': 'application/json' } };
+      if (body) o.body = JSON.stringify(body);
+      const r = await fetch(`${API}${path}`, o);
+      if (r.status === 401 || r.status === 403) { toast('认证失败 — 请检查密钥', 'err'); throw new Error('Unauthorized') }
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || `HTTP ${r.status}`) }
+      const txt = await r.text(); return txt ? JSON.parse(txt) : {};
+    }
+
+    document.getElementById('secretInput').addEventListener('keydown', e => { if (e.key === 'Enter') authenticate() });
+
+    async function authenticate() {
+      const inp = document.getElementById('secretInput'), err = document.getElementById('authError'), k = inp.value.trim();
+      if (!k) { err.textContent = '密钥不能为空'; return }
+      KEY = k; err.textContent = ''; document.getElementById('secretSubmit').disabled = true;
+      try {
+        await api('GET', '/v0/management/config');
+        sessionStorage.setItem('cpa_key', k);
+        document.getElementById('authGate').classList.add('hidden');
+        document.getElementById('app').style.display = 'flex';
+        refreshAll();
+      } catch { err.textContent = '密钥无效或服务器不可达'; KEY = '' }
+      finally { document.getElementById('secretSubmit').disabled = false }
+    }
+    (function () { const s = sessionStorage.getItem('cpa_key'); if (s) { document.getElementById('secretInput').value = s; authenticate() } })();
+
+    function go(v) {
+      document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      const view = document.getElementById('view-' + v), nav = document.querySelector(`[data-v="${v}"]`);
+      if (view) view.classList.add('active'); if (nav) nav.classList.add('active');
+    }
+
+    async function refreshAll() { await Promise.all([loadCreds(), loadStats(), loadVer(), loadApiKeys(), loadQuota()]) }
+
+    async function loadVer() { try { const d = await api('GET', '/v0/management/config'); document.getElementById('verInfo').textContent = `CLIProxyAPI v${d.version || '—'}` } catch { } }
+
+    async function loadCreds() {
+      try {
+        const d = await api('GET', '/v0/management/auth-files');
+        const files = (d.files || d || []).filter(f => (f.name || f.file_name || f.fileName || '').toLowerCase().includes('antigravity'));
+        renderCreds(files);
+      } catch (e) { console.error('loadCreds:', e) }
+    }
+
+    function getStatus(f) { if (f.disabled) return 'disabled'; if (f.cooldown || f.is_cooling) return 'cooldown'; if (f.expired || f.is_expired) return 'expired'; return 'active' }
+
+    function renderCreds(files) {
+      const tbody = document.getElementById('credBody'), total = files.length, active = files.filter(f => getStatus(f) === 'active').length;
+      ['ov0', 'ag0'].forEach(id => { document.getElementById(id).textContent = total });
+      ['ov1', 'ag1'].forEach(id => { document.getElementById(id).textContent = active });
+      document.getElementById('navBadge').textContent = total;
+      if (!total) { tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="empty__icon">◇</div><div class="empty__text">暂无凭据，点击「添加账户」开始</div></div></td></tr>`; return }
+      tbody.innerHTML = files.map(f => {
+        const name = f.name || f.file_name || f.fileName || 'unknown', email = name.replace('antigravity-', '').replace('.json', ''), st = getStatus(f);
+        const dc = st === 'active' ? 'green' : st === 'expired' ? 'red' : st === 'cooldown' ? 'yellow' : 'gray';
+        const labels = { active: '活跃', expired: '过期', cooldown: '冷却', disabled: '禁用' };
+        return `<tr><td><span class="dot dot--${dc}"></span></td><td style="font-family:var(--mono);font-size:13px">${esc(email)}</td><td><span class="badge badge--${dc}">${labels[st] || st}</span></td><td style="text-align:right"><button class="btn btn--danger btn--sm" onclick="delCred('${esc(name)}')">删除</button></td></tr>`
+      }).join('');
+    }
+
+    async function delCred(name) {
+      if (!confirm(`确认删除「${name}」？`)) return;
+      try { await api('DELETE', `/v0/management/auth-files?name=${encodeURIComponent(name)}`); toast('已删除', 'ok'); await loadCreds() } catch (e) { toast(`删除失败: ${e.message}`, 'err') }
+    }
+
+    async function loadStats() {
+      try {
+        const d = await api('GET', '/v0/management/usage'); let r = 0, e = 0;
+        if (d && typeof d === 'object') { if (d.total_requests !== undefined) { r = d.total_requests; e = d.total_errors || 0 } else if (d.models) { for (const m of Object.values(d.models)) { r += (m.total || m.count || 0); e += (m.errors || 0) } } }
+        ['ov2', 'ag2'].forEach(id => { document.getElementById(id).textContent = r.toLocaleString() });
+        ['ov3', 'ag3'].forEach(id => { document.getElementById(id).textContent = e.toLocaleString() });
+      } catch { }
+    }
+
+    async function startOAuth() {
+      const panel = document.getElementById('oauthPanel'), urlBox = document.getElementById('oauthUrl');
+      document.getElementById('cbInput').value = ''; panel.classList.add('active'); document.getElementById('addBtn').disabled = true; urlBox.textContent = '生成中...';
+      try {
+        const d = await api('GET', '/v0/management/antigravity-auth-url'); const url = d.url || d.auth_url || d.authUrl || ''; oauthSt = d.state || '';
+        if (!url) throw new Error('未返回授权 URL'); urlBox.textContent = url; urlBox.title = '点击复制'; toast('授权链接已生成', 'info'); startPoll();
+      } catch (e) { toast(`OAuth 失败: ${e.message}`, 'err'); cancelOAuth() }
+    }
+
+    function copyUrl() { const u = document.getElementById('oauthUrl').textContent; if (!u || u === '生成中...') return; navigator.clipboard ? navigator.clipboard.writeText(u).then(() => toast('已复制', 'ok')) : fbCopy(u) }
+    function fbCopy(t) { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select(); document.execCommand('copy'); document.body.removeChild(a); toast('已复制', 'ok') }
+
+    async function submitCb() {
+      const url = document.getElementById('cbInput').value.trim(); if (!url) { toast('请粘贴回调 URL', 'err'); return }
+      document.getElementById('oauthSpin').style.display = 'inline-block';
+      try { await api('POST', '/v0/management/oauth-callback', { provider: 'antigravity', redirect_url: url, state: oauthSt }); toast('凭据已保存！', 'ok'); cancelOAuth(); setTimeout(() => loadCreds(), 2000) } catch (e) { toast(`回调失败: ${e.message}`, 'err') }
+      finally { document.getElementById('oauthSpin').style.display = 'none' }
+    }
+
+    function cancelOAuth() { document.getElementById('oauthPanel').classList.remove('active'); document.getElementById('addBtn').disabled = false; oauthSt = ''; stopPoll() }
+
+    function startPoll() { stopPoll(); poll = setInterval(async () => { try { const d = await api('GET', `/v0/management/get-auth-status?state=${encodeURIComponent(oauthSt)}`); if (d.status === 'completed' || d.status === 'success') { toast('账户已自动认证！', 'ok'); cancelOAuth(); setTimeout(() => loadCreds(), 1500) } else if (d.status === 'error' || d.status === 'failed') { toast(`认证失败: ${d.error || '未知错误'}`, 'err'); cancelOAuth() } } catch { } }, 3000) }
+    function stopPoll() { if (poll) { clearInterval(poll); poll = null } }
+
+    // ═══════ API KEY MANAGEMENT ═══════
+    let apiKeys = [];
+
+    async function loadApiKeys() {
+      try {
+        const d = await api('GET', '/v0/management/api-keys');
+        apiKeys = d['api-keys'] || d.api_keys || d || [];
+        renderApiKeys();
+      } catch (e) { console.error('loadApiKeys:', e) }
+    }
+
+    function maskKey(k) {
+      if (k.length <= 8) return k;
+      return k.substring(0, 4) + '•'.repeat(Math.min(k.length - 8, 24)) + k.substring(k.length - 4);
+    }
+
+    function renderApiKeys(highlightIndex) {
+      const body = document.getElementById('apiKeyBody');
+      if (!apiKeys.length) {
+        body.innerHTML = '<div class="empty"><div class="empty__icon">🔑</div><div class="empty__text">暂无 API 密钥<br><span style="font-size:11px;color:var(--text-muted)">点击「生成密钥」创建一个，用于下游软件接入</span></div></div>';
+        return;
+      }
+      body.innerHTML = apiKeys.map((k, i) => {
+        const cls = i === highlightIndex ? ' key-new' : '';
+        return `<div class="key-item${cls}" id="ki-${i}"><span class="dot dot--green"></span><div class="key-item__val" id="kv-${i}" title="${esc(k)}">${esc(maskKey(k))}</div><div class="key-item__actions"><button class="btn btn--sm" onclick="toggleKeyVis(${i})" title="显示/隐藏">👁</button><button class="btn btn--sm" onclick="copyKey(${i})" title="复制">📋</button><button class="btn btn--danger btn--sm" onclick="delKey(${i})" title="删除">✕</button></div></div>`;
+      }).join('');
+    }
+
+    function toggleKeyVis(i) {
+      const el = document.getElementById('kv-' + i);
+      if (!el) return;
+      if (el.dataset.vis === '1') { el.textContent = maskKey(apiKeys[i]); el.dataset.vis = '0'; }
+      else { el.textContent = apiKeys[i]; el.dataset.vis = '1'; }
+    }
+
+    function copyKey(i) {
+      const k = apiKeys[i]; if (!k) return;
+      (navigator.clipboard ? navigator.clipboard.writeText(k) : Promise.resolve(fbCopy(k))).then(() => toast('密钥已复制', 'ok'));
+    }
+
+    async function generateApiKey() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let key = 'sk-';
+      const arr = new Uint8Array(32);
+      crypto.getRandomValues(arr);
+      for (const b of arr) key += chars[b % chars.length];
+      const newKeys = [...apiKeys, key];
+      try {
+        await api('PUT', '/v0/management/api-keys', newKeys);
+        apiKeys = newKeys;
+        renderApiKeys(newKeys.length - 1);
+        // Auto-show and copy new key
+        setTimeout(() => { toggleKeyVis(newKeys.length - 1); copyKey(newKeys.length - 1) }, 100);
+        toast('密钥已生成并复制到剪贴板', 'ok');
+      } catch (e) { toast('生成失败: ' + e.message, 'err') }
+    }
+
+    async function delKey(i) {
+      const k = apiKeys[i];
+      if (!confirm(`确认删除密钥 ${maskKey(k)} ？`)) return;
+      try {
+        await api('DELETE', `/v0/management/api-keys?value=${encodeURIComponent(k)}`);
+        toast('密钥已删除', 'ok');
+        await loadApiKeys();
+      } catch (e) { toast('删除失败: ' + e.message, 'err') }
+    }
+
+    // ═══ QUOTA ═══
+    let quotaData = [];
+    let quotaTimer = null;
+    async function loadQuota() {
+      const btn = document.getElementById('quotaRefreshBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const d = await api('GET', '/v0/management/antigravity-quota');
+        quotaData = (d && d.accounts) || [];
+        renderQuota();
+      } catch (e) {
+        document.getElementById('quotaBody').innerHTML =
+          `<div class="empty"><div class="empty__icon">⚠️</div><div class="empty__text">加载失败: ${esc(e.message)}</div></div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+    function quotaColor(pct) {
+      if (pct <= 0) return '#ef4444';
+      if (pct < 20) return '#f97316';
+      if (pct < 50) return '#eab308';
+      return '#22c55e';
+    }
+    function quotaStatus(pct) {
+      if (pct <= 0) return ['已耗尽', 'depleted'];
+      if (pct < 20) return ['危险', 'critical'];
+      if (pct < 50) return ['警告', 'warning'];
+      return ['健康', 'healthy'];
+    }
+    function fmtCountdown(iso) {
+      if (!iso) return '—';
+      const ms = new Date(iso).getTime() - Date.now();
+      if (ms <= 0) return '已重置';
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+    function fmtResetTime(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch { return iso; }
+    }
+    function svgRing(pct, color, size) {
+      const r = (size - 8) / 2, c = 2 * Math.PI * r;
+      const offset = c - (c * Math.min(100, Math.max(0, pct)) / 100);
+      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`
+        + `<circle class="quota-card__ring-bg" cx="${size / 2}" cy="${size / 2}" r="${r}"/>`
+        + `<circle class="quota-card__ring-fg" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke="${color}" stroke-dasharray="${c}" stroke-dashoffset="${offset}"/>`
+        + `</svg>`;
+    }
+    function renderQuota() {
+      const box = document.getElementById('quotaBody');
+      if (!quotaData.length) {
+        box.innerHTML = '<div class="empty"><div class="empty__icon">📊</div><div class="empty__text">没有 Antigravity 账户</div></div>';
+        return;
+      }
+      let html = '';
+      for (let ai = 0; ai < quotaData.length; ai++) {
+        const acct = quotaData[ai];
+        const email = esc(acct.email || '未知');
+        const plan = esc(acct.plan || '—');
+        const isOpen = ai === 0 ? 'open' : '';
+        // Account header
+        const statusBadge = acct.disabled
+          ? `<span class="quota-status-badge quota-status-badge--disabled">已停用</span>`
+          : `<span class="quota-status-badge quota-status-badge--active">已启用</span>`;
+        const checked = acct.disabled ? '' : 'checked';
+        html += `<div class="quota-acct-hdr ${isOpen}">`;
+        html += `<span class="quota-acct-hdr__arrow" onclick="this.parentElement.classList.toggle('open')">▶</span>`;
+        html += `<span class="quota-acct-hdr__email" onclick="this.parentElement.classList.toggle('open')">${email}</span>`;
+        html += `<span class="quota-plan__badge">${plan}</span>`;
+        html += statusBadge;
+        html += `<label class="quota-toggle" onclick="event.stopPropagation()" title="${acct.disabled ? '点击启用' : '点击停用'}">`;
+        html += `<input type="checkbox" ${checked} onchange="toggleAccount('${esc(acct.authId || '')}', !this.checked)">`;
+        html += `<span class="quota-toggle__slider"></span>`;
+        html += `</label>`;
+        html += `</div>`;
+        html += `<div class="quota-acct-section__body">`;
+        if (acct.error) {
+          html += `<div style="padding:12px 0;color:#f97316;font-size:12px">⚠ ${esc(acct.error)}</div>`;
+        } else if (!acct.models || !acct.models.length) {
+          html += `<div style="padding:12px 0;color:var(--text-muted);font-size:12px">无模型数据</div>`;
+        } else {
+          // Filter out internal models (chat_, tab_ prefixes, blacklisted)
+          const BLACKLIST = new Set(['MODEL_CHAT_20706', 'MODEL_CHAT_23310', 'MODEL_PLACEHOLDER_M19', 'MODEL_PLACEHOLDER_M28', 'MODEL_GOOGLE_GEMINI_2_5_FLASH', 'MODEL_GOOGLE_GEMINI_2_5_FLASH_LITE', 'MODEL_GOOGLE_GEMINI_2_5_FLASH_THINKING', 'MODEL_GOOGLE_GEMINI_2_5_PRO']);
+          const filtered = acct.models.filter(m => {
+            if (BLACKLIST.has(m.id)) return false;
+            if (/^(chat_|tab_)/.test(m.name)) return false;
+            return true;
+          });
+          // Group models
+          const groups = groupModels(filtered);
+          html += `<div class="quota-grid">`;
+          for (const g of groups) {
+            const pct = g.remaining;
+            const color = quotaColor(pct);
+            const [statusText, statusClass] = quotaStatus(pct);
+            const title = g.seriesName || (g.models.length === 1 ? esc(g.models[0].name) : `Group (${g.models.length} 模型)`);
+            html += `<div class="quota-card">`;
+            html += `<div class="quota-card__title" title="${g.models.map(m => esc(m.name)).join(', ')}">${title}</div>`;
+            html += `<div class="quota-card__ring">`;
+            html += svgRing(pct, color, 100);
+            html += `<div class="quota-card__ring-text" style="color:${color}">${pct.toFixed(0)}%</div>`;
+            html += `</div>`;
+            html += `<div class="quota-card__meta">`;
+            html += `<div class="quota-card__meta-row"><span class="quota-card__meta-label">重置倒计时</span><span class="quota-card__meta-value" data-reset="${esc(g.resetTime)}">${fmtCountdown(g.resetTime)}</span></div>`;
+            html += `<div class="quota-card__meta-row"><span class="quota-card__meta-label">重置时间</span><span class="quota-card__meta-value">${fmtResetTime(g.resetTime)}</span></div>`;
+            html += `<div class="quota-card__meta-row"><span class="quota-card__meta-label">状态</span><span class="quota-card__status ${statusClass}">${statusText}</span></div>`;
+            html += `</div>`;
+            if (g.models.length > 1) {
+              html += `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">包含模型 (${g.models.length}):</div>`;
+            }
+            html += `<div class="quota-card__models">`;
+            for (const m of g.models) {
+              html += `<span class="quota-card__tag" title="${esc(m.id)}">${esc(m.name)} →</span>`;
+            }
+            html += `</div></div>`;
+          }
+          html += `</div>`;
+        }
+        html += `</div>`;
+      }
+      box.innerHTML = html;
+      startQuotaTimer();
+    }
+    // Series-based fallback groups (matches plugin's groupBasedOnSeries)
+    const SERIES_GROUPS = {
+      'Gemini Pro': ['MODEL_PLACEHOLDER_M8', 'MODEL_PLACEHOLDER_M7', 'MODEL_PLACEHOLDER_M9'],
+      'Gemini Flash': ['MODEL_PLACEHOLDER_M18'],
+      'Claude & GPT': ['MODEL_CLAUDE_4_5_SONNET', 'MODEL_CLAUDE_4_5_SONNET_THINKING', 'MODEL_PLACEHOLDER_M12', 'MODEL_PLACEHOLDER_M26', 'MODEL_OPENAI_GPT_OSS_120B_MEDIUM'],
+    };
+    function groupModels(models) {
+      // Step 1: group by quota fingerprint
+      const map = new Map();
+      for (const m of models) {
+        const key = `${Math.round(m.remaining || 0)}_${m.resetTime || ''}`;
+        if (!map.has(key)) map.set(key, { remaining: Math.round(m.remaining || 0), resetTime: m.resetTime || '', models: [] });
+        map.get(key).models.push(m);
+      }
+      // Step 2: if only 1 group (degenerate state), fall back to series-based grouping
+      if (map.size === 1 && models.length > 1) {
+        return groupBySeries(models);
+      }
+      const groups = [...map.values()];
+      groups.sort((a, b) => a.remaining - b.remaining);
+      return groups;
+    }
+    function groupBySeries(models) {
+      const seriesMap = new Map();
+      for (const m of models) {
+        let series = 'Other';
+        for (const [name, ids] of Object.entries(SERIES_GROUPS)) {
+          if (ids.includes(m.id)) { series = name; break; }
+        }
+        if (!seriesMap.has(series)) seriesMap.set(series, { remaining: Math.round(m.remaining || 0), resetTime: m.resetTime || '', models: [], seriesName: series });
+        seriesMap.get(series).models.push(m);
+      }
+      return [...seriesMap.values()];
+    }
+    function startQuotaTimer() {
+      if (quotaTimer) clearInterval(quotaTimer);
+      quotaTimer = setInterval(() => {
+        document.querySelectorAll('[data-reset]').forEach(el => {
+          const iso = el.getAttribute('data-reset');
+          if (iso) el.textContent = fmtCountdown(iso);
+        });
+      }, 60000);
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML }
+
+    async function toggleAccount(authId, disabled) {
+      if (!authId) { alert('无法识别账户'); return; }
+      try {
+        await api('PATCH', '/v0/management/auth-files/status', { name: authId, disabled: disabled });
+        // Refresh quota data after toggle
+        setTimeout(loadQuota, 500);
+      } catch (e) {
+        alert('操作失败: ' + e.message);
+      }
+    }
+  </script>
+</body>
+
+</html>

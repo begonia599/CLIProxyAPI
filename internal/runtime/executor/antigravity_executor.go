@@ -54,6 +54,10 @@ const (
 var (
 	randSource      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	randSourceMutex sync.Mutex
+
+	// antigravityModelNameMap maps custom display names (e.g. "qwe-claude-sonnet-4-5")
+	// back to original upstream model names (e.g. "gemini-claude-sonnet-4-5").
+	antigravityModelNameMap sync.Map
 )
 
 // AntigravityExecutor proxies requests to the antigravity upstream.
@@ -649,7 +653,7 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 	if opts.Alt == "responses/compact" {
 		return nil, statusErr{code: http.StatusNotImplemented, msg: "/responses/compact not supported"}
 	}
-	baseModel := thinking.ParseSuffix(req.Model).ModelName
+	baseModel := resolveAntigravityModelName(thinking.ParseSuffix(req.Model).ModelName)
 
 	ctx = context.WithValue(ctx, "alt", "")
 
@@ -857,7 +861,7 @@ func (e *AntigravityExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Au
 
 // CountTokens counts tokens for the given request using the Antigravity API.
 func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
-	baseModel := thinking.ParseSuffix(req.Model).ModelName
+	baseModel := resolveAntigravityModelName(thinking.ParseSuffix(req.Model).ModelName)
 
 	token, updatedAuth, errToken := e.ensureAccessToken(ctx, auth)
 	if errToken != nil {
@@ -1068,6 +1072,7 @@ func FetchAntigravityModels(ctx context.Context, auth *cliproxyauth.Auth, cfg *c
 
 		now := time.Now().Unix()
 		modelConfig := registry.GetAntigravityModelConfig()
+		prefix := antigravityEmailPrefix(auth)
 		models := make([]*registry.ModelInfo, 0, len(result.Map()))
 		for originalName, modelData := range result.Map() {
 			modelID := strings.TrimSpace(originalName)
@@ -1075,7 +1080,8 @@ func FetchAntigravityModels(ctx context.Context, auth *cliproxyauth.Auth, cfg *c
 				continue
 			}
 			switch modelID {
-			case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-2.5-pro":
+			case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-2.5-pro",
+				"gemini-2.5-flash", "gemini-2.5-flash-lite", "tab_flash_lite_preview", "tab_jump_flash_lite_preview":
 				continue
 			}
 			modelCfg := modelConfig[modelID]
@@ -1086,9 +1092,19 @@ func FetchAntigravityModels(ctx context.Context, auth *cliproxyauth.Auth, cfg *c
 				displayName = modelID
 			}
 
+			// Build custom model name: strip gemini- from claude, add account prefix
+			customName := modelID
+			if strings.HasPrefix(customName, "gemini-claude-") {
+				customName = strings.TrimPrefix(customName, "gemini-")
+			}
+			if prefix != "" {
+				customName = prefix + "-" + customName
+			}
+			antigravityModelNameMap.Store(customName, modelID)
+
 			modelInfo := &registry.ModelInfo{
-				ID:          modelID,
-				Name:        modelID,
+				ID:          customName,
+				Name:        customName,
 				Description: displayName,
 				DisplayName: displayName,
 				Version:     modelID,
@@ -1111,6 +1127,34 @@ func FetchAntigravityModels(ctx context.Context, auth *cliproxyauth.Auth, cfg *c
 		return models
 	}
 	return nil
+}
+
+// antigravityEmailPrefix extracts a short prefix from the auth's email for model naming.
+// For "qwe3486685655@gmail.com" it returns "qwe".
+func antigravityEmailPrefix(auth *cliproxyauth.Auth) string {
+	if auth == nil {
+		return ""
+	}
+	label := auth.Label
+	label = strings.TrimPrefix(label, "antigravity-")
+	label = strings.TrimSuffix(label, ".json")
+	at := strings.IndexByte(label, '@')
+	if at <= 0 {
+		return ""
+	}
+	if at < 3 {
+		return label[:at]
+	}
+	return label[:3]
+}
+
+// resolveAntigravityModelName maps a custom display model name back to the
+// original upstream model name. If no mapping exists, it returns the name as-is.
+func resolveAntigravityModelName(name string) string {
+	if original, ok := antigravityModelNameMap.Load(name); ok {
+		return original.(string)
+	}
+	return name
 }
 
 func (e *AntigravityExecutor) ensureAccessToken(ctx context.Context, auth *cliproxyauth.Auth) (string, *cliproxyauth.Auth, error) {

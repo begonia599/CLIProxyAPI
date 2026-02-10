@@ -45,6 +45,9 @@ GEMINI.md
 _bmad/*
 _bmad-output/*
 
+# External tools
+vscode-antigravity-cockpit/
+
 # macOS
 .DS_Store
 ._*

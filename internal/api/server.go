@@ -25,6 +25,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/api/modules"
 	ampmodule "github.com/router-for-me/CLIProxyAPI/v6/internal/api/modules/amp"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/dashboard"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/managementasset"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
@@ -337,16 +338,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Root endpoint
-	s.engine.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "CLI Proxy API Server",
-			"endpoints": []string{
-				"POST /v1/chat/completions",
-				"POST /v1/completions",
-				"GET /v1/models",
-			},
-		})
-	})
+	s.engine.GET("/", serveEmbeddedDashboard)
 	s.engine.POST("/v1internal:method", geminiCLIHandlers.CLIHandler)
 
 	// OAuth callback endpoints (reuse main server port)
@@ -617,6 +609,7 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.DELETE("/auth-files", s.mgmt.DeleteAuthFile)
 		mgmt.PATCH("/auth-files/status", s.mgmt.PatchAuthFileStatus)
 		mgmt.POST("/vertex/import", s.mgmt.ImportVertexCredential)
+		mgmt.GET("/antigravity-quota", s.mgmt.GetAntigravityQuota)
 
 		mgmt.GET("/anthropic-auth-url", s.mgmt.RequestAnthropicToken)
 		mgmt.GET("/codex-auth-url", s.mgmt.RequestCodexToken)
@@ -669,6 +662,15 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 	}
 
 	c.File(filePath)
+}
+
+func serveEmbeddedDashboard(c *gin.Context) {
+	data, err := dashboard.Assets.ReadFile("antigravity_dashboard.html")
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	c.Data(http.StatusOK, "text/html; charset=utf-8", data)
 }
 
 func (s *Server) enableKeepAlive(timeout time.Duration, onTimeout func()) {
