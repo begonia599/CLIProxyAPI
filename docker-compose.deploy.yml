@@ -1,0 +1,17 @@
+# =============================================================
+#  CLIProxyAPI Server Deployment — docker-compose.deploy.yml
+#  Uses pre-built image from GHCR instead of local build.
+# =============================================================
+services:
+  cli-proxy-api:
+    image: ${GHCR_IMAGE:-ghcr.io/begonia599/cliproxyapi:latest}
+    container_name: cli-proxy-api
+    env_file:
+      - .env
+    ports:
+      - "${CPA_PORT:-8317}:8317"
+    volumes:
+      - ./config.yaml:/CLIProxyAPI/config.yaml
+      - ./auths:/root/.cli-proxy-api
+      - ./logs:/CLIProxyAPI/logs
+    restart: unless-stopped
