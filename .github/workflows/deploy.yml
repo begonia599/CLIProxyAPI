@@ -81,6 +81,25 @@ jobs:
               echo "$DOT_ENV" > .env
             fi
 
+            # Ensure docker-compose.deploy.yml exists
+            if [ ! -f docker-compose.deploy.yml ]; then
+            cat > docker-compose.deploy.yml << 'EOF'
+            services:
+              cli-proxy-api:
+                image: ghcr.io/begonia599/cliproxyapi:latest
+                container_name: cli-proxy-api
+                env_file:
+                  - .env
+                ports:
+                  - "${CPA_PORT:-8317}:8317"
+                volumes:
+                  - ./config.yaml:/CLIProxyAPI/config.yaml
+                  - ./auths:/root/.cli-proxy-api
+                  - ./logs:/CLIProxyAPI/logs
+                restart: unless-stopped
+            EOF
+            fi
+
             # Login to GHCR
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
