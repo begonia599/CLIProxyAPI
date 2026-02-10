@@ -91,7 +91,7 @@ jobs:
                 env_file:
                   - .env
                 ports:
-                  - "${CPA_PORT:-8317}:8317"
+                  - "127.0.0.1:${CPA_PORT:-8317}:8317"
                 volumes:
                   - ./config.yaml:/CLIProxyAPI/config.yaml
                   - ./auths:/root/.cli-proxy-api
